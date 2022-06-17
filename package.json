@@ -1,0 +1,29 @@
+{
+  "name": "nodejs-crud-api",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "start:dev": "nodemon server.js",
+    "start:prod": ""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shlykovaKate/NodeJS-CRUD-api.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/shlykovaKate/NodeJS-CRUD-api/issues"
+  },
+  "homepage": "https://github.com/shlykovaKate/NodeJS-CRUD-api#readme",
+  "devDependencies": {
+    "nodemon": "^2.0.16"
+  },
+  "dependencies": {
+    "uuid": "^8.3.2"
+  }
+}
