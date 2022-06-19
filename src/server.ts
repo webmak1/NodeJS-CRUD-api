@@ -3,6 +3,10 @@ import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { writeFile, readFile } from 'fs/promises';
 import * as uuid from 'uuid';
+import process from 'process';
+
+const PORT = 4000;
+const pid = process.pid;
 
 interface IUser {
 	id: uuid.V4Options;
@@ -80,7 +84,7 @@ const deleteUser = async (id:string) => {
   }
 }
 
-const server = createServer(async (req, res) => {
+export const server = createServer(async (req, res) => {
     if (req.url) {
         switch (req.method) {
             case 'POST': {
@@ -99,10 +103,10 @@ const server = createServer(async (req, res) => {
                         }
                         if (userProperties.username && userProperties.age && userProperties.hobbies) {
                             const newUser = await addUser(data.toString());
-                            res.writeHead(201, { 'Content-Type': 'application/json' })
+                            res.writeHead(200, { 'Content-Type': 'application/json', 'Process-id': pid});
                             res.end(JSON.stringify(newUser));
                         } else {
-                            res.writeHead(400, { 'Content-Type': 'application/json' })
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
                             res.end(JSON.stringify({message: `Enter the ${message}field(s)`}));
                         }
                     });
@@ -112,20 +116,20 @@ const server = createServer(async (req, res) => {
             case 'GET': {
                 if (req.url === '/api/users') {
                     const users = await getUsers();
-                    res.writeHead(200, { 'Content-Type': 'application/json' })
+                    res.writeHead(200, { 'Content-Type': 'application/json', 'Process-id': pid});
                     res.end(JSON.stringify(users));
                 } else if (req.url.match(/\/api\/users\/[\da-z]{8}-[\da-z]{4}-[\da-z]{4}-[\da-z]{4}-[\da-z]{12}/)) {
                     const id = req.url.split('/')[3];
                     const user = await getUser(id);
                     if (user) {
-                        res.writeHead(200, { 'Content-Type': 'application/json' })
+                        res.writeHead(200, { 'Content-Type': 'application/json', 'Process-id': pid});
                         res.end(JSON.stringify(user));
                     } else {
-                        res.writeHead(404, { 'Content-Type': 'application/json' })
+                        res.writeHead(404, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({message: "User not found"}));
                     }
                 } else {
-                    res.writeHead(400, { 'Content-Type': 'application/json' })
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({message: "Users id is invalid"}));
                 }
                 break;
@@ -138,15 +142,15 @@ const server = createServer(async (req, res) => {
                         const user = await updateUser(id, data.toString());
 
                         if (user) {
-                            res.writeHead(200, { 'Content-Type': 'application/json' })
+                            res.writeHead(200, { 'Content-Type': 'application/json', 'Process-id': pid});
                             res.end(JSON.stringify(user));
                         } else {
-                            res.writeHead(404, { 'Content-Type': 'application/json' })
+                            res.writeHead(404, { 'Content-Type': 'application/json' });
                             res.end(JSON.stringify({message: "User not found"}));
                         }
                     });
                 } else {
-                    res.writeHead(400, { 'Content-Type': 'application/json' })
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({message: "Users id is invalid"}));
                 }
                 break;
@@ -159,14 +163,14 @@ const server = createServer(async (req, res) => {
 
                     if (user) {
                         await deleteUser(id);
-                        res.writeHead(204, { 'Content-Type': 'application/json' })
+                        res.writeHead(200, { 'Content-Type': 'application/json', 'Process-id': pid});
                         res.end(JSON.stringify(user));
                     } else {
-                        res.writeHead(404, { 'Content-Type': 'application/json' })
+                        res.writeHead(404, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({message: "User not found"}));
                     }
                 } else {
-                    res.writeHead(400, { 'Content-Type': 'application/json' })
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({message: "Users id is invalid"}));
                 }
                 break;
@@ -175,5 +179,21 @@ const server = createServer(async (req, res) => {
     }
 });
 
-server.listen(4000, () => console.log('Server running on port 4000'));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
+process.on('uncaughtException', () => {
+    server.close();
+});
+
+process.on('SIGTERM', () => {
+    server.close();
+});
+
+process.once('exit', () => process.exit(0));
+process.once('SIGINT', () => process.exit(0));
+process.once('SIGTERM', () => process.exit(0));
+process.on('message', message => {
+    if (message === 'shutdown') {
+        process.exit(0);
+    }
+});
