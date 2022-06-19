@@ -1,11 +1,12 @@
 import { createServer } from 'http';
 import { resolve } from 'path';
-import { fileURLToPath } from 'url';
-import { writeFile, readFile } from 'fs/promises';
 import * as uuid from 'uuid';
 import process from 'process';
+import dotenv from 'dotenv';
 
-const PORT = 4000;
+dotenv.config({path: resolve((process.cwd(), '.env'))});
+
+const PORT = process.env.PORT || 4000;
 const pid = process.pid;
 
 interface IUser {
@@ -15,12 +16,11 @@ interface IUser {
     hobbies: string[] | [];
 }
 
+let users:IUser[] = [];
+
 const getUsers = async () => {
     try {
-        const __filename = fileURLToPath(import.meta.url);
-        const path = resolve(__filename, '../usersData/users.json');
-        const usersJSON = (await readFile(path)).toString();
-        return JSON.parse(usersJSON);
+        return Promise.resolve(users);
     } catch(error) {
         console.log(error);
     }
@@ -28,7 +28,6 @@ const getUsers = async () => {
 
 const getUser = async (id:string) => {
     try {
-        const users:IUser[] = await getUsers();
         const user = users.find((user:IUser) => user.id === id);
         return Promise.resolve(user);
     } catch(error) {
@@ -37,9 +36,6 @@ const getUser = async (id:string) => {
 };
 
 const addUser = async (data:string) => {
-    const __filename = fileURLToPath(import.meta.url);
-    const path = resolve(__filename, '../usersData/users.json');
-    const users:IUser[] = await getUsers();
     const newUser = {
       id: uuid.v4(),
       ...JSON.parse(data)
@@ -47,24 +43,19 @@ const addUser = async (data:string) => {
 
     users.push(newUser);
     try {
-        await writeFile(path, JSON.stringify(users));
-        return newUser;
+        return Promise.resolve(newUser);
     } catch (error) {
         console.log(error);
     }
 };
 
 const updateUser = async (id:string, data:string) => {
-    const __filename = fileURLToPath(import.meta.url);
-    const path = resolve(__filename, '../usersData/users.json');
-    const users:IUser[] = await getUsers();
     const userIndex = users.findIndex((user:IUser) => user.id === id);
 
     if (userIndex >= 0) {
         users[userIndex] = {...users[userIndex], ...JSON.parse(data)};
         try {
-            await writeFile(path, JSON.stringify(users));
-            return users[userIndex];
+            return Promise.resolve(users[userIndex]);
         } catch(error) {
             console.log(error);
         }
@@ -72,16 +63,8 @@ const updateUser = async (id:string, data:string) => {
 }
 
 const deleteUser = async (id:string) => {
-  const __filename = fileURLToPath(import.meta.url);
-  const path = resolve(__filename, '../usersData/users.json');
-  const users:IUser[] = await getUsers();
-  const newUsers = users.filter((user:IUser) => user.id !== id);
+    users = users.filter((user:IUser) => user.id !== id);
 
-  try {
-      await writeFile(path, JSON.stringify(newUsers));
-  } catch(error) {
-      console.log(error);
-  }
 }
 
 export const server = createServer(async (req, res) => {
@@ -103,7 +86,7 @@ export const server = createServer(async (req, res) => {
                         }
                         if (userProperties.username && userProperties.age && userProperties.hobbies) {
                             const newUser = await addUser(data.toString());
-                            res.writeHead(200, { 'Content-Type': 'application/json', 'Process-id': pid});
+                            res.writeHead(201, { 'Content-Type': 'application/json', 'Process-id': pid});
                             res.end(JSON.stringify(newUser));
                         } else {
                             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -139,14 +122,29 @@ export const server = createServer(async (req, res) => {
                     const id = req.url.split('/')[3];
 
                     req.on('data', async (data) => {
-                        const user = await updateUser(id, data.toString());
-
-                        if (user) {
-                            res.writeHead(200, { 'Content-Type': 'application/json', 'Process-id': pid});
-                            res.end(JSON.stringify(user));
+                        const userProperties = JSON.parse(data.toString());
+                        let message = '';
+                        if (!userProperties.username) {
+                            message += 'username ';
+                        }
+                        if (!userProperties.age) {
+                            message += 'age ';
+                        }
+                        if (!userProperties.hobbies) {
+                            message += 'hobbies ';
+                        }
+                        if (userProperties.username && userProperties.age && userProperties.hobbies) {
+                            const user = await updateUser(id, data.toString());
+                            if (user) {
+                                res.writeHead(200, { 'Content-Type': 'application/json', 'Process-id': pid});
+                                res.end(JSON.stringify(user));
+                            } else {
+                                res.writeHead(404, { 'Content-Type': 'application/json' });
+                                res.end(JSON.stringify({message: "User not found"}));
+                            }
                         } else {
                             res.writeHead(404, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({message: "User not found"}));
+                            res.end(JSON.stringify({message: `Enter the ${message}field(s)`}));
                         }
                     });
                 } else {
@@ -158,13 +156,12 @@ export const server = createServer(async (req, res) => {
             case 'DELETE': {
                 if (req.url.match(/\/api\/users\/[\da-z]{8}-[\da-z]{4}-[\da-z]{4}-[\da-z]{4}-[\da-z]{12}/)) {
                     const id = req.url.split('/')[3];
-                    const users:IUser[] = await getUsers();
                     const user = users.find((user:IUser) => user.id === id);
 
                     if (user) {
                         await deleteUser(id);
-                        res.writeHead(200, { 'Content-Type': 'application/json', 'Process-id': pid});
-                        res.end(JSON.stringify(user));
+                        res.writeHead(204, { 'Content-Type': 'application/json', 'Process-id': pid});
+                        res.end(JSON.stringify({message: "User was deleted"}));
                     } else {
                         res.writeHead(404, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({message: "User not found"}));

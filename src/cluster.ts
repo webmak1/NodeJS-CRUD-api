@@ -1,9 +1,13 @@
 import cluster from 'cluster';
 import { cpus } from 'os';
 import process from 'process';
+import { resolve } from 'path';
 import { server } from './server.js';
+import dotenv from 'dotenv';
 
-const PORT = 4000;
+dotenv.config({path: resolve((process.cwd(), '.env'))});
+
+const PORT = process.env.PORT || 4000;
 const pid = process.pid;
 let workers = [];
 
@@ -15,8 +19,7 @@ if (cluster.isPrimary) {
       workers[i] = cluster.fork();
   }
   workers.forEach((worker) => {
-      worker.on('listening', (address) => {
-        console.log('adress', address);
+      worker.on('listening', () => {
           worker.send('shutdown');
           worker.disconnect();
           worker.kill();
